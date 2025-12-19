@@ -1,10 +1,11 @@
 
 import React from 'react';
-import { Slide, PresetStyle, BrandConfig, Position, AdditionalText, AIAsset } from '../types';
+import { Slide, PresetStyle, BrandConfig, Position, TextStyle, AIAsset, AspectRatio } from '../types';
 
 interface SlideRendererProps {
     slide: Slide;
     presetStyle: PresetStyle;
+    aspectRatio: AspectRatio;
     brandConfig: BrandConfig;
     slideIndex: number;
     totalSlides: number;
@@ -12,13 +13,14 @@ interface SlideRendererProps {
     tempPositions?: {
         [key: string]: Position;
     };
-    onTextChange: (field: 'title' | 'content' | 'secondContent' | string, value: string) => void;
+    onTextChange: (field: string, value: string) => void;
     onMouseDown: (e: React.MouseEvent, id: string, x: number, y: number) => void;
 }
 
 export const SlideRenderer: React.FC<SlideRendererProps> = ({
     slide,
     presetStyle,
+    aspectRatio,
     brandConfig,
     slideIndex,
     totalSlides,
@@ -31,30 +33,67 @@ export const SlideRenderer: React.FC<SlideRendererProps> = ({
     const contentPos = tempPositions?.content || slide.contentPosition || { x: 0, y: 0 };
     const brandPos = tempPositions?.brand || brandConfig.position || { x: 0, y: 0 };
     
-    const highlightEnabled = slide.enableTextHighlight ?? false;
+    const getTextStyle = (style: TextStyle, isTitle: boolean = false): React.CSSProperties => {
+        const shadowMap = {
+            none: 'none',
+            soft: '0 2px 4px rgba(0,0,0,0.3)',
+            hard: '2px 2px 0px rgba(0,0,0,0.8)',
+            glow: `0 0 15px ${style.color || 'white'}`
+        };
+
+        return {
+            color: style.color || (presetStyle === 'bold' ? 'black' : 'white'),
+            fontSize: `${style.fontSize || (isTitle ? 48 : 18)}px`,
+            fontFamily: style.fontFamily || 'Inter',
+            fontWeight: style.bold ? '800' : (isTitle ? '800' : '500'),
+            fontStyle: style.italic ? 'italic' : 'normal',
+            textDecoration: style.underline ? 'underline' : 'none',
+            textTransform: style.uppercase ? 'uppercase' : 'none',
+            lineHeight: style.lineHeight || 1.1,
+            letterSpacing: `${style.letterSpacing || 0}px`,
+            textAlign: style.textAlign || 'left',
+            textShadow: shadowMap[style.shadow || 'none'],
+        };
+    };
 
     const renderEditableText = (
         text: string, 
-        field: 'title' | 'content' | 'secondContent' | string, 
-        baseStyles: React.CSSProperties,
+        field: string, 
+        style: TextStyle,
         isContent: boolean = false,
         className: string = ""
-    ) => (
-        <div 
-            contentEditable
-            suppressContentEditableWarning
-            onBlur={(e) => onTextChange(field, e.currentTarget.innerText)}
-            className={`outline-none cursor-text empty:before:content-[attr(data-placeholder)] empty:before:text-white/30 transition-all ${
-                highlightEnabled 
-                ? `${isContent ? 'bg-white text-black' : 'bg-black text-white'} px-3 py-1 box-decoration-clone inline-block` 
-                : 'text-white drop-shadow-xl block'
-            } hover:ring-2 hover:ring-primary/40 rounded-sm ${className}`}
-            style={baseStyles}
-            data-placeholder={`Enter text...`}
-        >
-            {text}
-        </div>
-    );
+    ) => {
+        const baseStyles = getTextStyle(style, !isContent);
+        const highlightEnabled = slide.enableTextHighlight ?? false;
+
+        return (
+            <div 
+                contentEditable
+                suppressContentEditableWarning
+                onBlur={(e) => onTextChange(field, e.currentTarget.innerText)}
+                className={`outline-none cursor-text empty:before:content-[attr(data-placeholder)] transition-all ${
+                    highlightEnabled 
+                    ? `px-3 py-1 box-decoration-clone inline-block` 
+                    : 'block'
+                } hover:ring-2 hover:ring-primary/40 rounded-sm ${className}`}
+                style={{
+                    ...baseStyles,
+                    backgroundColor: highlightEnabled ? (slide.highlightColor || (isContent ? 'white' : 'black')) : 'transparent',
+                    opacity: highlightEnabled ? (slide.highlightOpacity ?? 1) : 1
+                }}
+                data-placeholder={`Enter text...`}
+            >
+                {text}
+            </div>
+        );
+    };
+
+    const canvasSizes = {
+        '1:1': { width: 400, height: 400 },
+        '4:5': { width: 400, height: 500 },
+        '9:16': { width: 281, height: 500 }
+    };
+    const currentSize = canvasSizes[aspectRatio];
 
     const renderLayout = () => {
         const isCenter = slide.layout === 'title-center' || slide.layout === 'quote' || presetStyle === 'minimalist';
@@ -71,12 +110,7 @@ export const SlideRenderer: React.FC<SlideRendererProps> = ({
                         className={`cursor-move mb-4 relative rounded-sm ${draggingId === 'title' ? 'ring-2 ring-primary ring-dashed scale-[1.02] z-50' : 'hover:outline hover:outline-1 hover:outline-primary/50'}`}
                         style={{ transform: `translate(${titlePos.x}px, ${titlePos.y}px)`, transition: draggingId === 'title' ? 'none' : 'transform 0.2s' }}
                     >
-                        {renderEditableText(slide.title, 'title', {
-                            fontSize: `${slide.titleFontSize || 48}px`,
-                            fontWeight: slide.titleFontWeight || '800',
-                            color: presetStyle === 'bold' && !highlightEnabled ? 'black' : undefined,
-                            lineHeight: '1.1'
-                        })}
+                        {renderEditableText(slide.title, 'title', slide.titleStyle, false)}
                     </div>
 
                     {slide.layout !== 'title-center' && (
@@ -85,12 +119,7 @@ export const SlideRenderer: React.FC<SlideRendererProps> = ({
                             className={`cursor-move relative rounded-sm ${draggingId === 'content' ? 'ring-2 ring-primary ring-dashed scale-[1.02] z-50' : 'hover:outline hover:outline-1 hover:outline-primary/50'}`}
                             style={{ transform: `translate(${contentPos.x}px, ${contentPos.y}px)`, transition: draggingId === 'content' ? 'none' : 'transform 0.2s' }}
                         >
-                            {renderEditableText(slide.content, 'content', {
-                                fontSize: '18px',
-                                fontWeight: '500',
-                                color: presetStyle === 'bold' && !highlightEnabled ? 'black' : 'rgba(255,255,255,0.9)',
-                                lineHeight: '1.5'
-                            }, true)}
+                            {renderEditableText(slide.content, 'content', slide.contentStyle, true)}
                         </div>
                     )}
                 </div>
@@ -102,24 +131,34 @@ export const SlideRenderer: React.FC<SlideRendererProps> = ({
                                slide.backgroundImage?.startsWith('data:image') || 
                                slide.backgroundImage?.includes('gradient');
                                
-    const backgroundScale = slide.backgroundScale ?? 1.1; 
+    const backgroundFilters = `
+        blur(${slide.bgBlur || 0}px)
+        brightness(${slide.bgBrightness ?? 1})
+        contrast(${slide.bgContrast ?? 1})
+        saturate(${slide.bgSaturation ?? 1})
+    `;
 
     return (
         <div 
             id="slide-canvas"
-            className={`relative w-[400px] h-[500px] overflow-hidden rounded-lg shadow-2xl ring-4 ring-primary/50 select-none animate-slide-transition ${getPresetClasses(presetStyle)}`}
-            style={{ fontFamily: slide.fontFamily || 'Inter' }}
+            className={`relative overflow-hidden shadow-2xl ring-4 ring-primary/50 select-none animate-slide-transition ${getPresetClasses(presetStyle)}`}
+            style={{ 
+                width: currentSize.width, 
+                height: currentSize.height,
+                borderRadius: `${slide.cornerRadius || 8}px`,
+                border: `${slide.borderWidth || 0}px solid ${slide.borderColor || 'white'}`
+            }}
         >
             <div 
-                className="absolute inset-0 z-0 transition-all duration-700 bg-surface-darker"
+                className="absolute inset-0 z-0 transition-all duration-700"
                 style={{
                     backgroundColor: !bgIsImageOrGradient ? (slide.backgroundImage || 'var(--primary-color)') : undefined,
                     backgroundImage: bgIsImageOrGradient ? slide.backgroundImage : undefined,
                     backgroundSize: 'cover',
                     backgroundPosition: slide.backgroundPosition || 'center',
                     backgroundRepeat: 'no-repeat',
-                    filter: `blur(${slide.bgBlur || 0}px)`,
-                    transform: `scale(${backgroundScale})`
+                    filter: backgroundFilters,
+                    transform: `scale(${slide.backgroundScale ?? 1.1})`
                 }}
             />
             
@@ -131,7 +170,7 @@ export const SlideRenderer: React.FC<SlideRendererProps> = ({
             
             {renderLayout()}
 
-            {/* AI Assets (Icons/Stickers) */}
+            {/* AI Assets */}
             {slide.additionalAssets?.map((asset) => {
                 const pos = tempPositions?.[`asset-${asset.id}`] || asset.position || { x: 0, y: 0 };
                 return (
@@ -141,21 +180,13 @@ export const SlideRenderer: React.FC<SlideRendererProps> = ({
                         className={`absolute left-0 top-0 cursor-move z-20 group ${draggingId === `asset-${asset.id}` ? 'ring-2 ring-primary ring-dashed scale-[1.1]' : 'hover:outline hover:outline-1 hover:outline-primary/50'}`}
                         style={{ 
                             transform: `translate(${pos.x}px, ${pos.y}px) rotate(${asset.rotation || 0}deg)`, 
-                            transition: draggingId === `asset-${asset.id}` ? 'none' : 'transform 0.2s' 
+                            transition: draggingId === `asset-${asset.id}` ? 'none' : 'transform 0.2s',
+                            zIndex: asset.zIndex || 20
                         }}
                     >
                         <span className="material-symbols-outlined select-none" style={{ fontSize: `${asset.size}px`, color: asset.color || 'white' }}>
                             {asset.value}
                         </span>
-                    </div>
-                );
-            })}
-
-            {slide.additionalTexts?.map((extra) => {
-                const pos = tempPositions?.[`extra-${extra.id}`] || extra.position || { x: 0, y: 0 };
-                return (
-                    <div key={extra.id} onMouseDown={(e) => onMouseDown(e, `extra-${extra.id}`, pos.x, pos.y)} className={`absolute left-0 top-0 cursor-move z-30 group ${draggingId === `extra-${extra.id}` ? 'ring-2 ring-primary ring-dashed' : ''}`} style={{ transform: `translate(${pos.x}px, ${pos.y}px)` }}>
-                        {renderEditableText(extra.text, `extra-${extra.id}`, { fontSize: `${extra.fontSize}px`, fontWeight: '600' }, true)}
                     </div>
                 );
             })}
@@ -169,6 +200,9 @@ export const SlideRenderer: React.FC<SlideRendererProps> = ({
                     <span className="text-xs font-medium opacity-70">{brandConfig.website}</span>
                 </div>
             )}
+            <div className="absolute top-4 right-4 text-[10px] font-bold px-2 py-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/20">
+                {slideIndex + 1} / {totalSlides}
+            </div>
         </div>
     );
 };

@@ -1,9 +1,28 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { CarouselTone, Slide } from "../types";
+import { CarouselTone, Slide, TextStyle } from "../types";
 
-const apiKey = process.env.API_KEY || ''; 
-const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+const DEFAULT_TITLE_STYLE: TextStyle = {
+    fontSize: 48,
+    bold: true,
+    color: '#ffffff',
+    textAlign: 'left',
+    shadow: 'none',
+    lineHeight: 1.1,
+    fontFamily: 'Inter'
+};
+
+const DEFAULT_CONTENT_STYLE: TextStyle = {
+    fontSize: 18,
+    bold: false,
+    color: '#ffffff',
+    textAlign: 'left',
+    shadow: 'none',
+    lineHeight: 1.5,
+    fontFamily: 'Inter'
+};
 
 export const generateCarouselContent = async (
     topic: string,
@@ -11,8 +30,6 @@ export const generateCarouselContent = async (
     slideCount: number,
     language: string = 'English'
 ): Promise<Slide[]> => {
-    if (!ai) return generateMockData(slideCount);
-
     const systemInstruction = `You are a social media expert. Create a ${slideCount}-slide carousel about "${topic}" in ${language}. Tone: ${tone}.
     Return JSON array of objects: { title, content, visualDescription }.`;
 
@@ -46,8 +63,11 @@ export const generateCarouselContent = async (
             visualDescription: item.visualDescription,
             layout: index === 0 ? 'title-center' : 'split',
             backgroundImage: getRandomGradient(index),
-            fontFamily: 'Inter',
-            additionalAssets: []
+            titleStyle: { ...DEFAULT_TITLE_STYLE },
+            contentStyle: { ...DEFAULT_CONTENT_STYLE },
+            additionalAssets: [],
+            bgOverlayOpacity: 0.4,
+            bgBlur: 0
         }));
     } catch (error) {
         console.error("Gemini failed:", error);
@@ -56,24 +76,22 @@ export const generateCarouselContent = async (
 };
 
 export const suggestAssets = async (slideTitle: string, slideContent: string): Promise<string[]> => {
-    if (!ai) return ['rocket', 'star', 'lightbulb'];
     try {
         const response = await ai.models.generateContent({
             model: 'gemini-3-flash-preview',
             contents: `Slide Title: ${slideTitle}. Content: ${slideContent}`,
             config: {
-                systemInstruction: "Return a JSON array of 5 Material Symbol icon names (e.g., 'rocket_launch', 'trending_up', 'psychology') that best represent the visual concept of this slide.",
+                systemInstruction: "Return a JSON array of 5 Material Symbol icon names (lowercase, underscores) that best represent the visual concept of this slide.",
                 responseMimeType: "application/json",
             }
         });
         return JSON.parse(response.text || '[]');
     } catch {
-        return ['rocket', 'star', 'lightbulb'];
+        return ['rocket_launch', 'star', 'lightbulb', 'trending_up', 'psychology'];
     }
 };
 
-export const generateImage = async (prompt: string, style?: string, aspectRatio: string = '3:4', type: 'background' | 'isolated' = 'background'): Promise<string | null> => {
-    if (!ai) return `url('https://picsum.photos/seed/${encodeURIComponent(prompt)}/800/1000')`;
+export const generateImage = async (prompt: string, style?: string, aspectRatio: string = '1:1', type: 'background' | 'isolated' = 'background'): Promise<string | null> => {
     const fullPrompt = `${prompt}${style ? `. Style: ${style}` : ''}${type === 'isolated' ? '. Isolated on white background.' : ''}`;
     try {
         const response = await ai.models.generateContent({
@@ -106,5 +124,7 @@ const generateMockData = (count: number): Slide[] => Array.from({ length: count 
     visualDescription: "Abstract blue waves",
     layout: i === 0 ? 'title-center' : 'split',
     backgroundImage: getRandomGradient(i),
+    titleStyle: { ...DEFAULT_TITLE_STYLE },
+    contentStyle: { ...DEFAULT_CONTENT_STYLE },
     additionalAssets: []
 }));

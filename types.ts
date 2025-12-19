@@ -4,11 +4,25 @@ export interface Position {
     y: number;
 }
 
+export interface TextStyle {
+    bold?: boolean;
+    italic?: boolean;
+    underline?: boolean;
+    uppercase?: boolean;
+    color?: string;
+    fontSize?: number;
+    fontFamily?: string;
+    lineHeight?: number;
+    letterSpacing?: number;
+    textAlign?: 'left' | 'center' | 'right';
+    shadow?: 'none' | 'soft' | 'hard' | 'glow';
+}
+
 export interface AdditionalText {
     id: string;
     text: string;
     position: Position;
-    fontSize: number;
+    style: TextStyle;
 }
 
 export interface AIAsset {
@@ -19,9 +33,11 @@ export interface AIAsset {
     size: number;
     color?: string;
     rotation?: number;
+    zIndex?: number;
 }
 
 export type PresetStyle = 'standard' | 'minimalist' | 'card' | 'bold' | 'geometric';
+export type AspectRatio = '1:1' | '4:5' | '9:16';
 
 export interface Slide {
     id: string;
@@ -31,19 +47,39 @@ export interface Slide {
     visualDescription: string;
     backgroundImage?: string;
     layout: 'title-center' | 'split' | 'text-only' | 'quote' | 'comparison' | 'chat';
-    textAlignment?: 'left' | 'center' | 'right';
-    titleFontSize?: number;
-    titleFontWeight?: string;
-    fontFamily?: string;
-    overlayPattern?: 'none' | 'grid' | 'dots';
+    
+    // Detailed Typography
+    titleStyle: TextStyle;
+    contentStyle: TextStyle;
+    
+    // Background Tuning
     backgroundPosition?: 'center' | 'top' | 'bottom' | 'left' | 'right';
     backgroundScale?: number;
+    bgBrightness?: number;
+    bgContrast?: number;
+    bgSaturation?: number;
+    bgGrayscale?: number;
+    
+    // Floating Elements
     additionalTexts?: AdditionalText[];
-    additionalAssets?: AIAsset[]; // New field for AI Icons
+    additionalAssets?: AIAsset[];
+    
+    // Visual Enhancements
     enableTextHighlight?: boolean; 
+    highlightColor?: string;
+    highlightOpacity?: number;
     bgOverlayOpacity?: number;     
     bgBlur?: number;               
+    
+    // Borders & Corners
+    cornerRadius?: number;
+    borderWidth?: number;
+    borderColor?: string;
+
+    // AI Assets Persistence
     generatedVariations?: string[]; 
+    
+    // Positioning
     titlePosition?: Position;
     contentPosition?: Position;
 }
@@ -71,8 +107,9 @@ export interface CarouselProject {
     language: string; 
     slides: Slide[];
     themeId: string;
-    primaryColor: string;
+    primaryColor: string; 
     presetStyle: PresetStyle;
+    aspectRatio: AspectRatio;
     brandConfig: BrandConfig;
     lastSaved: Date;
 }
